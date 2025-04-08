@@ -89,7 +89,8 @@ def analyze_sample_trends(sample_id):
             "contexto": {
                 "topics": calculate_distribution(topic_by_word[word]),
                 "sentiments": calculate_distribution(sentiment_by_word[word])
-            }
+            },
+            "sample":sample_id
         })
 
     insert_daily_trends({

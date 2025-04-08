@@ -1,25 +1,25 @@
 # trend_forecaster.py
-
 from datetime import datetime, timedelta, UTC
-from pymongo import MongoClient
-from dotenv import load_dotenv
+from mongo.find import find_daily_trends
+from mongo.insert import insert_trend_predictions
 from collections import defaultdict
 import numpy as np
 import tensorflow as tf
 import pandas as pd
-import os
-
-load_dotenv()
-client = MongoClient(os.getenv("MONGO_URI"))
-db = client[os.getenv("DB_NAME")]
 
 
-# ======================
-# Data Preparation
-# ======================
+def build_model(window_size):
+    model = tf.keras.Sequential([
+        tf.keras.layers.Input(shape=(window_size, 1)),
+        tf.keras.layers.LSTM(32),
+        tf.keras.layers.Dense(1)
+    ])
+    model.compile(optimizer="adam", loss="mse")
+    return model
+
 
 def get_word_time_series(word, min_days=7):
-    docs = list(db.daily_trends.find({}))
+    docs = list(find_daily_trends("all", {}))
     data = []
 
     for doc in docs:
@@ -57,7 +57,8 @@ def train_predict(series, window_size=3):
     X = X.reshape((X.shape[0], X.shape[1], 1))
 
     model = tf.keras.Sequential([
-        tf.keras.layers.LSTM(32, input_shape=(window_size, 1)),
+        tf.keras.layers.Input(shape=(window_size, 1)),  # ✅ Recommended way
+        tf.keras.layers.LSTM(32),
         tf.keras.layers.Dense(1)
     ])
 
@@ -74,9 +75,9 @@ def train_predict(series, window_size=3):
 # ======================
 
 def save_prediction(word, predicted_count):
-    db.trend_predictions.insert_one({
+    insert_trend_predictions({
         "word": word,
-        "predicted_count": round(float(predicted_count), 2),
+        "predicted_count": round(predicted_count.item(), 2),
         "predicted_for": (datetime.now(UTC) + timedelta(days=1)).date().isoformat(),
         "created_at": datetime.now(UTC)
     })
@@ -87,21 +88,25 @@ def save_prediction(word, predicted_count):
 # ======================
 
 def predict_top_words():
+    model = build_model(window_size=3)  # Create it once
+
     today = datetime.now(UTC).date().isoformat()
-    trend_doc = db.daily_trends.find_one({"date": today})
+    trend_doc = find_daily_trends("one", {"date": today})
     if not trend_doc:
         print("No trend data for today.")
         return
 
-    for entry in trend_doc["top_words"][:5]:  # Predict for top 5 words
+    for entry in trend_doc["top_words"][:5]:
         word = entry["word"]
         series_df = get_word_time_series(word)
         if series_df is not None:
-            y_pred = train_predict(series_df["count"].values)
+            X, y = prepare_sequences(series_df["count"].values, window_size=3)
+            X = X.reshape((X.shape[0], X.shape[1], 1))
+            model.fit(X, y, epochs=100, verbose=0)
+            latest_input = series_df["count"].values[-3:].reshape((1, 3, 1))
+            y_pred = model.predict(latest_input, verbose=0)
             save_prediction(word, y_pred)
-            print(f"✅ {word}: predicted count for tomorrow = {round(y_pred, 2)}")
-        else:
-            print(f"⚠️ Not enough data to predict '{word}'")
+            print(f"✅ {word}: predicted count for tomorrow = {round(y_pred[0][0], 2)}")
 
 
 if __name__ == "__main__":

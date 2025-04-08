@@ -75,6 +75,21 @@ def insert_daily_trends(document):
         return False
 
 
+def insert_trend_predictions(document):
+    try:
+        if not document:
+            print("No data to insert found.")
+            return
+        result = db.trend_predictions.insert_one(document)
+        if result.acknowledged:
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(f"Error:{e}")
+        return False
+
+
 def insert_link_pool(document):
     try:
         if not document:
