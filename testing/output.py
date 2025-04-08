@@ -4,7 +4,7 @@ import feedparser
 from mongo.find import find_clean_articles, find_articles
 
 
-def output(sample_temp):
+def output():
     message = "Hello"
 
     print(message)
