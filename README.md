@@ -1,1 +1,1 @@
-# languageTrendExplorer
+# LanguageTrendExplorer
