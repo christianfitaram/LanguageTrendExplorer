@@ -221,9 +221,9 @@ This will:
 - Predict future trends based on frequency and growth (on beta)
 - Store/update trend results
 
-To achieve this the main function involved is `analyze_sample_trends`
+To achieve this, the main function involved is `analyze_sample_trends`
 
-Work flow of `analyze_sample_trends` function:
+Workflow of `analyze_sample_trends` function:
 
 The `analyze_sample_trends` function is designed to analyze and identify trends within a specific batch of processed articles, focusing on the frequency and context of nouns used. Here's a detailed breakdown of its operation:
 
@@ -257,6 +257,8 @@ The `analyze_sample_trends` function is designed to analyze and identify trends 
 7. Finalize Analysis:
    - Records the completion time of the analysis in the metadata.
    - Outputs the results in a tabular format for review.
+
+  ### The output of running `analyze_sample_trends` is the single most important piece of data generated in this program.
   
   Example of a document stored in MongoDB generated after running this part of the pipeline:
   
@@ -483,7 +485,8 @@ And load them using `os.environ` or `dotenv`.
 ---
 
 ## Screenshots
-  ![gathering_sample](https://github.com/user-attachments/assets/618a9a93-7cf7-4152-ac80-a05bf92dae2f)
+
+  <img width="812" alt="Screenshot 2025-04-08 at 19 21 38" src="https://github.com/user-attachments/assets/618a9a93-7cf7-4152-ac80-a05bf92dae2f" />
   
   *(CLI output while performing articles scraping and classifying them)*
   
