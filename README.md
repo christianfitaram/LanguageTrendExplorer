@@ -1,6 +1,6 @@
 # 🌍 Language Trend Explorer
 
-A modular NLP pipeline designed to scrape, clean, classify, summarize, analyze, and store trending linguistic content from real-world news sources.
+​A modular NLP pipeline that leverages AI models and machine learning techniques to efficiently scrape, clean, classify, summarize, analyze, and store trending linguistic content from real-world news sources.  
 
 Built for developers and data/AI enthusiasts looking for scalable, cleanly separated pipelines using Python, MongoDB, and modern NLP tools.
 
