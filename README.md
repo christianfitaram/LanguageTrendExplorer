@@ -94,7 +94,6 @@ beautifulsoup4
 nltk
 scikit-learn
 spacy
-openai
 pymongo
 ```
 
@@ -119,9 +118,11 @@ This will:
 
 
 The execution of this pipeline produces 4 types of documents, which are stored in MongoDB.
+
 1. `articles` documents.
 
-   This is the core data of the whole program. This document, combined with others from the same batch, forms the sample to be analyzed for trending words. At this stage is semi-processed, being assigned a topic and sentiment. However, the `text`  still contains stop words (such as "and", "the", "is", etc.) not relevant for the analysis,
+   This is the core data of the whole program. This document, combined with others from the same batch, forms the sample to be analyzed for trending words. At this stage is semi-processed, being assigned a topic and sentiment. However, the `text`  still contains stop words (such as "and", "the", "is", etc.) not relevant for the analysis.
+   
    <img width="603" alt="Screenshot 2025-04-09 at 09 23 09" src="https://github.com/user-attachments/assets/ed12bdc5-1076-4e16-966d-2e4f852a51a0" />
 
    Note: ​The most important and biggest part of this document: `text` is obtained by the `fetch_and_extract` function, designed to retrieve and extract the main textual content from a given webpage URL using the `Trafilatura` library. 
@@ -159,14 +160,14 @@ The execution of this pipeline produces 4 types of documents, which are stored i
      ​These documents are the output of the ```clean_articles``` function that processes articles by extracting lemmatized nouns from their text using spaCy's `en_core_web_sm` model. It retrieves unprocessed articles from the   database, extracts relevant nouns, and stores the cleaned data in a separate collection. The function also updates metadata to track the cleaning process's start and end times, ensuring efficient processing and preparation for further analysis.
    
 
-4. `link_pool` documents
+3. `link_pool` documents
 
    These documents are meant to keep track of what URLs have been scraped, on what batch, and if the scraping process was successful. Designed to track errors and help developers improve scraping methods.
    
      
      <img width="577" alt="Screenshot 2025-04-09 at 10 40 49" src="https://github.com/user-attachments/assets/607c84f8-6d2f-4e6d-987c-74ebf85c58c1" />
      
-5. `metadata` documents
+4. `metadata` documents
 
    
     <img width="437" alt="Screenshot 2025-04-09 at 10 54 35" src="https://github.com/user-attachments/assets/5e1b9613-36f3-455f-bb73-336cf48dbf0e" />
