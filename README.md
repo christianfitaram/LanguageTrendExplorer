@@ -1,12 +1,23 @@
 # 🌍 Language Trend Explorer
 
-​A modular NLP pipeline that leverages AI models and machine learning techniques to efficiently scrape, clean, classify, summarize, analyze, and store trending linguistic content from real-world news sources.  
-
-Built for developers and data/AI enthusiasts looking for scalable, cleanly separated pipelines using Python, MongoDB, and modern NLP tools.
-
----
-
 ## 🧠 Project Overview
+
+### How it Works:
+The program begins by scraping news websites and aggregating article content using tools like Requests, BeautifulSoup, and the NewsAPI. Once collected, the text from each article is processed using NLP libraries such as NLTK and spaCy to tokenize and extract meaningful nouns. These articles are then classified by topic and assigned a sentiment label (positive, neutral, or negative) using AI models built with TensorFlow and scikit-learn.
+
+After classification, the system performs frequency analysis to detect trending terms across all articles. It ranks the top 15 trending words each day and stores the results in MongoDB for tracking and historical analysis. Additionally, the pipeline includes predictive capabilities to forecast emerging trends based on historical data using deep learning techniques.
+
+Technologies Used:
+Python, NLTK, spaCy, TensorFlow, scikit-learn, MongoDB, Requests, BeautifulSoup, NewsAPI, among others.
+
+### Use Cases
+
+- 🔍 NLP for language trend detection
+- 🗞️ Media monitoring and topic classification
+- 📚 Language learning insights from real data
+- 📈 Predictive trend analytics with historic article data
+
+### Project structure
 
 The **Language Trend Explorer** is split into modular, self-contained components:
 
@@ -45,6 +56,7 @@ LanguageTrendExplorer/
 │   └── update.py                 # Updates existing records in MongoDB
 │
 ├── .gitignore                    # Ignore env files, IDE configs, and model weights
+├── app.py                        # API endpoints
 ├── requirements.txt              # Python dependencies (to be filled)
 └── README.md                     # Project documentation (this file)
 ```
@@ -465,8 +477,8 @@ The `analyze_sample_trends` function is designed to analyze and identify trends 
 ---
 ## Extras
 
-  The `app.py` file in the root directory is API and endpoints configuration to get access to the data via HTTP request. 
-
+The `app.py` file, located in the root directory of the project, serves as the entry point for the API layer. It is responsible for configuring and exposing RESTful endpoints that allow external clients to interact with the system via HTTP requests. Users can retrieve processed data through these endpoints, including classified articles, sentiment analysis results, top trending words, and trend predictions. The API is built using Flask - a lightweight web framework-, ensuring efficient and scalable access to the underlying data and analytics.
+   
 ---
 
 ## 📦 Environment Variables (If Needed)
@@ -494,17 +506,6 @@ And load them using `os.environ` or `dotenv`.
   
   *(CLI output after executing the prediction part of the pipeline)*
   
-
-
----
-
-## 💼 Use Cases
-
-- 🔍 NLP for language trend detection
-- 🗞️ Media monitoring and topic classification
-- 📚 Language learning insights from real data
-- 📈 Predictive trend analytics with historic article data
-
 ---
 
 ## 📫 Contact
