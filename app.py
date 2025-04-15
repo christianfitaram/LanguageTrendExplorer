@@ -1,9 +1,7 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from pipeline_trend_analyzer.trend_analysis import compare_trends_extended, get_today_trends
 from pipeline_trend_analyzer.trend_analysis import get_trends_by_date
-from datetime import datetime, UTC, timedelta
-from mongo.find import find_trend_predictions
-
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -36,8 +34,7 @@ def api_trends_by_date(date_str):
 
 @app.route("/api/trends/forecast", methods=["GET"])
 def get_forecasted_trends():
-    tomorrow = (datetime.now(UTC) + timedelta(days=1)).date().isoformat()
-    predictions = list(find_trend_predictions({"predicted_for": tomorrow}, {"_id": 0}))
+    predictions = "Output"
     return jsonify(predictions), 200
 
 

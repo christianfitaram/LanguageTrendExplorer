@@ -1,15 +1,20 @@
 from datetime import datetime, UTC, time, timedelta
-
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import spacy
 from collections import Counter, defaultdict
 import pandas as pd
-from mongo.insert import insert_daily_trends
-from mongo.find import find_clean_articles, find_daily_trends
-from mongo.update import update_clean_articles, update_metadata
+from mongo.repositories.repository_clean_articles import RepositoryCleanArticles
+from mongo.repositories.repository_metadata import RepositoryMetadata
+from mongo.repositories.repository_daily_trends import RepositoryDailyTrends
+from mongo.mongodb_client import db
+from utils.utils_functions import is_valid_sample
 
 nlp = spacy.load("en_core_web_sm")
+
+repo_clean_art = RepositoryCleanArticles(db)
+repo_metadata = RepositoryMetadata(db)
+repo_daily_trends = RepositoryDailyTrends(db)
 
 
 def calculate_distribution(values):
@@ -21,19 +26,23 @@ def calculate_distribution(values):
     ]
 
 
-def analyze_sample_trends(sample_id):
+def analyze_sample_trends(sample_id=None):
+    if sample_id is None:
+        sample_id = input("Enter the sample string (e.g. '1-2025-04-12'): ")
+        while is_valid_sample(sample_id) is False:
+            sample_id = input("Incorrect format (e.g. '1-2025-04-12'): ")
+
     today = datetime.now(UTC).date()
-    articles = list(find_clean_articles({
-        "sample": sample_id,
-        "isProcessed": False,
+    articles = list(repo_clean_art.get_articles({
+        "sample": sample_id
     }))
 
     if not articles:
         print("No articles found for today.")
         return
-
+    print(f"✅ Found {len(articles)} articles to process ")
     word_occurrences = []
-    update_metadata({"_id":sample_id},{"$set":{"analyze_sample_startedAt":datetime.now(UTC)}})
+    repo_metadata.update_metadata({"_id": sample_id}, {"$set": {"analyze_sample_startedAt": datetime.now(UTC)}})
     for article in articles:
         topic = article.get("topic", "").strip().lower()
         sentiment_label = article.get("sentiment", {}).get("label", "").strip().lower()
@@ -50,9 +59,9 @@ def analyze_sample_trends(sample_id):
                 "sentiment": sentiment_label if is_valid_sentiment else None
             })
 
-        is_updated = update_clean_articles({"_id": article["_id"]}, {"$set": {"isProcessed": True}})
+        is_updated = repo_clean_art.update_articles({"_id": article["_id"]}, {"$set": {"isProcessed": True}})
 
-        if is_updated:
+        if is_updated > 0:
             print(f"ARTICLE: {article["title"]} has been processed successfully")
         else:
             print(f"ARTICLE: {article["title"]} has not been labeled as processed")
@@ -65,7 +74,7 @@ def analyze_sample_trends(sample_id):
 
     # Number of distinct words
     distinct_words = len(word_counter)
-    update_metadata({"_id": sample_id}, {
+    repo_metadata.update_metadata({"_id": sample_id}, {
         "$set": {"raw_total_words": total_words, "distinct_words": distinct_words}})
     top_words = word_counter.most_common(15)
 
@@ -86,26 +95,26 @@ def analyze_sample_trends(sample_id):
             "word": word,
             "count": count,
             "rank": idx + 1,
-            "contexto": {
+            "context": {
                 "topics": calculate_distribution(topic_by_word[word]),
                 "sentiments": calculate_distribution(sentiment_by_word[word])
-            },
-            "sample":sample_id
+            }
         })
 
-    insert_daily_trends({
+    repo_daily_trends.insert_daily_trends({
         "date": today.isoformat(),
         "top_words": ranked_words,
-        "created_at": datetime.now(UTC)
+        "created_at": datetime.now(UTC),
+        "sample": sample_id
     })
-    update_metadata({"_id":sample_id},{"$set":{"analyze_sample_finishedAt":datetime.now(UTC)}})
+    repo_metadata.update_metadata({"_id": sample_id}, {"$set": {"analyze_sample_finishedAt": datetime.now(UTC)}})
 
     print(pd.DataFrame(ranked_words))
 
 
 def get_today_trends():
     today = datetime.now(UTC).date()
-    trend_doc = find_daily_trends("one", {"date": today.isoformat()})
+    trend_doc = repo_daily_trends.get_daily_trends({"date": today.isoformat()})
     if not trend_doc:
         return None  # or return [] if you prefer empty list fallback
     return {
@@ -116,7 +125,7 @@ def get_today_trends():
 
 def get_trends_by_date(date_str):
     """Fetch daily_trends document by ISO date string: YYYY-MM-DD"""
-    trend_doc = find_daily_trends("one", {"date": date_str})
+    trend_doc = repo_daily_trends.get_daily_trends({"date": date_str})
 
     if not trend_doc:
         return None
@@ -131,8 +140,8 @@ def compare_trends_extended():
     today = datetime.now(UTC).date()
     yesterday = today - timedelta(days=1)
 
-    today_doc = find_daily_trends("one", {"date": today.isoformat()})
-    yest_doc = find_daily_trends("one", {"date": yesterday.isoformat()})
+    today_doc = repo_daily_trends.get_daily_trends({"date": today.isoformat()})
+    yest_doc = repo_daily_trends.get_daily_trends({"date": yesterday.isoformat()})
 
     if not today_doc or not yest_doc:
         print("Missing trend data for today or yesterday.")
@@ -181,7 +190,7 @@ def compare_trends_extended():
 
 
 def get_word_time_series(word, min_days=7):
-    docs = list(find_daily_trends("all", {}))
+    docs = list(repo_daily_trends.get_daily_trends({}))
     data = []
 
     for doc in docs:
@@ -201,4 +210,4 @@ def get_word_time_series(word, min_days=7):
 
 
 if __name__ == "__main__":
-    analyze_sample_trends(sample_id="")
+    analyze_sample_trends()

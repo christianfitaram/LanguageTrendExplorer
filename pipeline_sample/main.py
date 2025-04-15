@@ -4,6 +4,7 @@ from pipeline_trend_analyzer.trend_analysis import analyze_sample_trends
 
 
 def run_pipeline_sample():
+    print("✅ Starting pipeline to gather samples: ")
     sample_temp = classify_articles()
     clean_articles(sample_temp)
     analyze_sample_trends(sample_temp)

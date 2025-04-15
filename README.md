@@ -50,14 +50,20 @@ LanguageTrendExplorer/
 │   ├── prediction.py             # Trend prediction using ML/statistical methods
 │   └── trend_analysis.py         # Extracts daily trends and builds frequency maps
 │
-├── mongo/                        # MongoDB access and operations
-│   ├── find.py                   # Queries for stored articles/trends
-│   ├── insert.py                 # Inserts processed data into MongoDB
-│   └── update.py                 # Updates existing records in MongoDB
+├── mongo/                        # MongoDB access and CRUD operations
+│   ├── repositories                        
+│   │   ├── repository_articles.py  
+│   │   ├── repository_clean_articles.py
+│   │   ├── repository_daily_trends.py
+│   │   ├── repository_link_pool.py
+│   │   ├── repository_metadata.py
+│   │   ├── repository_trend_predictions.py   
+│   └── mongodb_client.py                   
 │
 ├── .gitignore                    # Ignore env files, IDE configs, and model weights
 ├── app.py                        # API endpoints
 ├── requirements.txt              # Python dependencies (to be filled)
+├── app.py                        # API
 └── README.md                     # Project documentation (this file)
 ```
 
@@ -218,9 +224,10 @@ The execution of this pipeline produces 4 types of documents, which are stored i
       - `raw_total_words`: The total count of words before any processing or cleaning.
 
 
+After this pipelines runs it will create sets of there type of documents:
+
+
 ---
-
-
 ### Run the Trend Analysis Pipeline:
 
 ```bash
@@ -414,6 +421,10 @@ The `analyze_sample_trends` function is designed to analyze and identify trends 
         ],
         "sentiments": [
           { "label": "positive", "percentage": 33 },
+        "..."
+        ]
+      }
+        
   ```  
 
 ## Prediction Feature (BETA)

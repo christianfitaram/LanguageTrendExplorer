@@ -3,11 +3,16 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipe
 from exec_scraper import get_all_articles
 from summarizer import smart_summarize
 from datetime import datetime, UTC
-from mongo.insert import insert_sample, insert_metadata
-from mongo.find import find_articles
-from mongo.update import update_metadata, update_link_pool
 from collections import Counter
+from mongo.mongodb_client import db
+from mongo.repositories.repository_articles import RepositoryArticles
+from mongo.repositories.repository_link_pool import RepositoryLinkPool
+from mongo.repositories.repository_metadata import RepositoryMetadata
 
+# Injecting repositories
+repo_articles = RepositoryArticles(db)
+repo_link_pool = RepositoryLinkPool(db)
+repo_metadata = RepositoryMetadata(db)
 
 # Define your candidate labels (topics)
 CANDIDATE_TOPICS = [
@@ -57,8 +62,9 @@ def get_next_batch_number():
     today = datetime.now(UTC).date()
 
     # Attempt to find the latest document for today, sorted by batch number in descending order
-    latest_doc = find_articles('one', {"scraped_at": {"$gte": datetime.combine(today, datetime.min.time(), UTC)}},
-                               [("batch", -1)])
+    latest_doc = repo_articles.get_one_article(
+        {"scraped_at": {"$gte": datetime.combine(today, datetime.min.time(), UTC)}},
+        [("batch", -1)])
 
     # If a document is found and, it has a 'batch' field, increment its batch number
     if latest_doc and "batch" in latest_doc:
@@ -82,19 +88,24 @@ def classify_articles():
     num_well_classified = 0
     num_failed_classified = 0
     batch_number = get_next_batch_number()
-
-    print(f"🗂️  Starting batch {batch_number}")
     id_for_metadata = testing_id_generator()
 
-    insert_metadata({"_id": id_for_metadata, "gathering_sample_startedAt": datetime.now(UTC), "batch": batch_number})
+    print(f"🗂️  Starting batch ID: {id_for_metadata}")
+    repo_metadata.insert_metadata(
+        {"_id": id_for_metadata, "gathering_sample_startedAt": datetime.now(UTC), "batch": batch_number})
 
     for i, article in enumerate(get_all_articles(), start=1):
         text = article.get("text", "")
+        text_len = len(text)
         if not text:
             continue
 
         try:
-            summary = smart_summarize(text)
+            if text_len > 200:
+                summary = smart_summarize(text)
+            else:
+                summary = text
+
             topic = topic_pipeline(summary, candidate_labels=CANDIDATE_TOPICS)
             sentiment = sentiment_pipeline(summary)[0]
 
@@ -122,16 +133,17 @@ def classify_articles():
             sentiment_counter[sentiment_label] += 1
 
             # inserting data into mongoDB
-            insert_sample(classified_article)
+            repo_articles.create_articles(classified_article)
 
-            update_link_pool({"url": article.get("url")},
-                             {"$set": {"is_articles_processed": True, "in_sample": id_for_metadata}})
-            print(f"[{i}] ✅ Inserted (Batch {batch_number}): {classified_article['title']}")
+            repo_link_pool.update_link_in_pool({"url": article.get("url")},
+                                               {"$set": {"is_articles_processed": True, "in_sample": id_for_metadata}})
+
+            print(f"[{i}] ✅ Inserted (In sample {id_for_metadata}): {classified_article['title']}")
 
         except Exception as e:
             num_failed_classified += num_failed_classified
-            update_link_pool({"url": article.get("url")},
-                             {"$set": {"is_articles_processed": False, "in_sample": id_for_metadata}})
+            repo_link_pool.update_link_in_pool({"url": article.get("url")},
+                                               {"$set": {"is_articles_processed": True, "in_sample": id_for_metadata}})
             print(f"[{i}] ❌ Error classifying article: {e}")
 
     # Total number of successfully classified articles
@@ -147,7 +159,7 @@ def classify_articles():
         {"label": label, "percentage": round((count / total_classified) * 100, 2)}
         for label, count in sentiment_counter.most_common()
     ]
-    update_metadata({"_id": id_for_metadata}, {
+    repo_metadata.update_metadata({"_id": id_for_metadata}, {
         "$set": {
             "articles_processed": {
                 "successfully": num_well_classified,
@@ -159,10 +171,7 @@ def classify_articles():
         }
     })
 
-    return {
-        "batch_number": batch_number,
-        "metadata_id": id_for_metadata
-    }
+    return id_for_metadata
 
 
 if __name__ == "__main__":
