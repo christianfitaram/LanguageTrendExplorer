@@ -90,7 +90,7 @@ def classify_articles():
     batch_number = get_next_batch_number()
     id_for_metadata = testing_id_generator()
 
-    print(f"🗂️  Starting batch ID: {id_for_metadata}")
+    print(f"🗂️Starting batch ID: {id_for_metadata}")
     repo_metadata.insert_metadata(
         {"_id": id_for_metadata, "gathering_sample_startedAt": datetime.now(UTC), "batch": batch_number})
 

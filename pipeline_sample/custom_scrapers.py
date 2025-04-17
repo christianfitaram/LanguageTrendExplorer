@@ -42,12 +42,15 @@ def scrape_bbc_stream():
         parent = link.find_parent("a")
         href = parent.get("href") if parent else ""
         full_url = "https://www.bbc.com" + href if href.startswith("/") else href
-        if is_urls_processed_already(full_url):
+
+        if is_urls_processed_already(full_url):  # Skip if url in link pool
             continue
+
         full_text = fetch_and_extract(full_url)
         if not full_text:
             continue
-        repo.insert_link({"url": full_url})
+
+        repo.insert_link({"url": full_url})  # Add URL to link pool
         yield {
             "title": title,
             "url": full_url,
@@ -72,20 +75,24 @@ def scrape_cnn_stream():
             continue
         full_url = "https://edition.cnn.com" + href if href.startswith("/") else href
 
-        if is_urls_processed_already(full_url):
+        if is_urls_processed_already(full_url):  # Skip if url in link pool
             continue
+
         full_text = fetch_and_extract(full_url)
         if not full_text:
             continue
+
         title_tag = link.select_one(".container__headline-text, [data-editable='headline']")
         if not title_tag:
             continue
 
         title = title_tag.get_text(strip=True)
         full_text = fetch_and_extract(full_url)
+
         if not full_text:
             continue
-        repo.insert_link({"url": full_url})
+
+        repo.insert_link({"url": full_url})  # Add URL to link pool
         yield {
             "title": title,
             "url": full_url,
@@ -105,9 +112,14 @@ def scrape_wsj_stream():
 
     for entry in feed.entries:
         summary = entry.get("summary", "").strip()
+
+        if is_urls_processed_already(entry.link):  # Skip if url in link pool
+            continue
+
         if not summary:
             continue
 
+        repo.insert_link({"url": entry.link})  # Add URL to link pool
         yield {
             "title": entry.title.strip(),
             "url": entry.link,
