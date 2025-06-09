@@ -126,7 +126,7 @@ def classify_articles():
             }
 
             # set data for metadata
-            num_well_classified += num_well_classified
+            num_well_classified += 1
             topic_label = topic["labels"][0]
             sentiment_label = sentiment["label"]
             topic_counter[topic_label] += 1
@@ -141,7 +141,7 @@ def classify_articles():
             print(f"[{i}] ✅ Inserted (In sample {id_for_metadata}): {classified_article['title']}")
 
         except Exception as e:
-            num_failed_classified += num_failed_classified
+            num_failed_classified += 1
             repo_link_pool.update_link_in_pool({"url": article.get("url")},
                                                {"$set": {"is_articles_processed": True, "in_sample": id_for_metadata}})
             print(f"[{i}] ❌ Error classifying article: {e}")

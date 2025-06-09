@@ -68,7 +68,6 @@ def clean_articles(sample_temp=None):
             "nouns": nouns
         }
 
-
         # Updating isCleaned from articles to true
         repo_articles.update_articles({"_id": article["_id"]}, {"$set": {"isCleaned": True}})
         print(cleaned_doc)
