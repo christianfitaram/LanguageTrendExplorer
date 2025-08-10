@@ -1,12 +1,41 @@
-from transformers import pipeline, BartTokenizer
+# pipeline_sample/summarizer.py
+
+import os
 import re
 import torch
+from pathlib import Path
 
-UNWANTED_KEYWORDS = ["Copyright", "©", "all rights reserved", "terms of use", "bbc is not responsible", "AP Photo", "r"]
+from transformers import pipeline, BartTokenizer
 
-# Correct tokenizer for BART
-tokenizer = BartTokenizer.from_pretrained("facebook/bart-large-cnn")
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+UNWANTED_KEYWORDS = [
+    # Copyright & legal
+    "copyright", "©", "all rights reserved", "terms of use",
+    "disclaimer", "reproduction prohibited", "unauthorized reproduction", "no part of this",
+    # Photo/media credits
+    "ap photo", "ap images", "getty images", "reuters", "afp", "associated press",
+    "via ap", "image credit", "photo credit", "file photo",
+    # Boilerplate & site branding
+    "bbc is not responsible", "cnn's", "fox news", "nytimes.com", "the guardian",
+    # Misc filler
+    "advertisement", "sponsored content", "click here", "read more", "see also", "watch now",
+]
+MODELS_DIR = Path(os.getenv("HF_HOME", "models/transformers")).resolve()
+CACHE_DIR = str(MODELS_DIR)
+
+BART = "facebook/bart-large-cnn"
+tokenizer = BartTokenizer.from_pretrained(BART, cache_dir=CACHE_DIR, local_files_only=True)
+
+# choose device once
+if torch.backends.mps.is_available():
+    _device = 0
+elif torch.cuda.is_available():
+    _device = 0
+else:
+    _device = -1
+
+_summarizer = pipeline("summarization", model=BART, tokenizer=tokenizer,
+                       device=_device, model_kwargs={"torch_dtype": "auto"},
+                       framework="pt")
 
 
 def is_photo_credit(text):

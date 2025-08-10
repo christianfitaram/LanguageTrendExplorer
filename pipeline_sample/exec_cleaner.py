@@ -1,17 +1,16 @@
+# pipeline_sample/exec_cleaner.py
+
 from datetime import datetime, UTC
-from mongo.mongodb_client import db
-from mongo.repositories.repository_metadata import RepositoryMetadata
-from mongo.repositories.repository_articles import RepositoryArticles
-from mongo.repositories.repository_clean_articles import RepositoryCleanArticles
+
 import spacy
 
-from utils.utils_functions import is_valid_sample
+from lib.repositories.articles_repository import ArticlesRepository
+from lib.repositories.clean_articles_repository import CleanArticlesRepository
+from lib.repositories.metadata_repository import MetadataRepository
+from utils.validation import is_valid_sample
 
 # Load the spaCy model
 nlp = spacy.load("en_core_web_sm")
-repo_articles = RepositoryArticles(db)
-repo_metadata = RepositoryMetadata(db)
-repo_clean_articles = RepositoryCleanArticles(db)
 
 
 def extract_nouns(text):
@@ -36,6 +35,11 @@ def clean_articles(sample_temp=None):
     Args:
         sample_temp (str): The sample id from the batch of articles to process.
     """
+
+    repo_articles = ArticlesRepository()
+    repo_clean_articles = CleanArticlesRepository()
+    repo_metadata = MetadataRepository()
+
     # In case the sample id is not provided by the pipeline
     if sample_temp is None:
         sample_temp = input("Enter the sample string (e.g. '1-2025-04-12'): ")

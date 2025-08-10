@@ -1,3 +1,5 @@
+# pipeline_sample/news_api_scraper.py
+
 import os
 from datetime import timezone, datetime, UTC
 

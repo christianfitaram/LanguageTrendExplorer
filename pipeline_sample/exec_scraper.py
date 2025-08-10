@@ -1,4 +1,7 @@
+# pipeline_sample/exec_scrapper.py
+
 from custom_scrapers import scrape_bbc_stream, scrape_cnn_stream, scrape_wsj_stream, scrape_aljazeera
+
 from news_api_scraper import scrape_newsapi_stream, scrape_all_categories
 
 

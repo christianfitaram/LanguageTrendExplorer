@@ -1,3 +1,5 @@
+# pipeline_sample/custom_scrapers.py
+
 from datetime import datetime, UTC
 
 import feedparser
@@ -5,10 +7,9 @@ import requests
 import trafilatura
 from bs4 import BeautifulSoup
 
-from mongo.mongodb_client import db
-from mongo.repositories.repository_link_pool import RepositoryLinkPool
+from lib.repositories.link_pool_repository import LinkPoolRepository
 
-repo = RepositoryLinkPool(db)
+repo_link_pool = LinkPoolRepository()
 
 
 def fetch_and_extract(url):
@@ -22,7 +23,7 @@ def fetch_and_extract(url):
 
 
 def is_urls_processed_already(url):
-    is_it = repo.is_link_successfully_processed(url)
+    is_it = repo_link_pool.is_link_successfully_processed(url)
     if is_it:
         print(f"{url} it has been processed already. Skipping ")
         return True
@@ -52,7 +53,7 @@ def scrape_bbc_stream():
         if not full_text:
             continue
 
-        repo.insert_link({"url": full_url})  # Add URL to link pool
+        repo_link_pool.insert_link({"url": full_url})  # Add URL to link pool
         yield {
             "title": title,
             "url": full_url,
@@ -94,7 +95,7 @@ def scrape_cnn_stream():
         if not full_text:
             continue
 
-        repo.insert_link({"url": full_url})  # Add URL to link pool
+        repo_link_pool.insert_link({"url": full_url})  # Add URL to link pool
         yield {
             "title": title,
             "url": full_url,
@@ -121,7 +122,7 @@ def scrape_wsj_stream():
         if not summary:
             continue
 
-        repo.insert_link({"url": entry.link})  # Add URL to link pool
+        repo_link_pool.insert_link({"url": entry.link})  # Add URL to link pool
         yield {
             "title": entry.title.strip(),
             "url": entry.link,
@@ -163,7 +164,7 @@ def scrape_aljazeera():
         if not full_text:
             print(f"❌ Could not extract content from {full_url}")
             continue
-        repo.insert_link({"url": full_url})  # Add URL to link pool
+        repo_link_pool.insert_link({"url": full_url})  # Add URL to link pool
         yield ({
             "title": link.get_text(strip=True),
             "url": full_url,

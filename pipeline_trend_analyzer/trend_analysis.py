@@ -1,20 +1,17 @@
 from datetime import datetime, UTC, time, timedelta
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
 import spacy
 from collections import Counter, defaultdict
 import pandas as pd
-from mongo.repositories.repository_clean_articles import RepositoryCleanArticles
-from mongo.repositories.repository_metadata import RepositoryMetadata
-from mongo.repositories.repository_daily_trends import RepositoryDailyTrends
-from mongo.mongodb_client import db
-from utils.utils_functions import is_valid_sample
+from lib.repositories.clean_articles_repository import CleanArticlesRepository
+from lib.repositories.metadata_repository import MetadataRepository
+from lib.repositories.daily_trends_repository import DailyTrendsRepository
+from utils.validation import is_valid_sample
 
 nlp = spacy.load("en_core_web_sm")
 
-repo_clean_art = RepositoryCleanArticles(db)
-repo_metadata = RepositoryMetadata(db)
-repo_daily_trends = RepositoryDailyTrends(db)
+repo_clean_art = CleanArticlesRepository()
+repo_metadata = MetadataRepository()
+repo_daily_trends = DailyTrendsRepository()
 
 
 def calculate_distribution(values):
@@ -110,103 +107,6 @@ def analyze_sample_trends(sample_id=None):
     repo_metadata.update_metadata({"_id": sample_id}, {"$set": {"analyze_sample_finishedAt": datetime.now(UTC)}})
 
     print(pd.DataFrame(ranked_words))
-
-
-def get_today_trends():
-    today = datetime.now(UTC).date()
-    trend_doc = repo_daily_trends.get_daily_trends({"date": today.isoformat()})
-    if not trend_doc:
-        return None  # or return [] if you prefer empty list fallback
-    return {
-        "date": trend_doc["date"],
-        "top_words": trend_doc["top_words"]
-    }
-
-
-def get_trends_by_date(date_str):
-    """Fetch daily_trends document by ISO date string: YYYY-MM-DD"""
-    trend_doc = repo_daily_trends.get_daily_trends({"date": date_str})
-
-    if not trend_doc:
-        return None
-
-    return {
-        "date": trend_doc["date"],
-        "top_words": trend_doc["top_words"]
-    }
-
-
-def compare_trends_extended():
-    today = datetime.now(UTC).date()
-    yesterday = today - timedelta(days=1)
-
-    today_doc = repo_daily_trends.get_daily_trends({"date": today.isoformat()})
-    yest_doc = repo_daily_trends.get_daily_trends({"date": yesterday.isoformat()})
-
-    if not today_doc or not yest_doc:
-        print("Missing trend data for today or yesterday.")
-        return {}
-
-    today_map = {entry["word"]: entry for entry in today_doc["top_words"]}
-    yest_map = {entry["word"]: entry for entry in yest_doc["top_words"]}
-
-    shared_words = set(today_map) & set(yest_map)
-    only_today = set(today_map) - set(yest_map)
-    only_yesterday = set(yest_map) - set(today_map)
-
-    result = {
-        "common": [],
-        "new_entries": [],
-        "disappeared": []
-    }
-
-    for word in shared_words:
-        today_rank = today_map[word]["rank"]
-        yest_rank = yest_map[word]["rank"]
-        change = yest_rank - today_rank
-        result["common"].append({
-            "word": word,
-            "rank_today": today_rank,
-            "rank_yesterday": yest_rank,
-            "change": change
-        })
-
-    for word in only_today:
-        result["new_entries"].append({
-            "word": word,
-            "rank_today": today_map[word]["rank"]
-        })
-
-    for word in only_yesterday:
-        result["disappeared"].append({
-            "word": word,
-            "rank_yesterday": yest_map[word]["rank"]
-        })
-
-    # Optional: sort common by biggest rank jump
-    result["common"].sort(key=lambda x: x["change"], reverse=True)
-
-    return result
-
-
-def get_word_time_series(word, min_days=7):
-    docs = list(repo_daily_trends.get_daily_trends({}))
-    data = []
-
-    for doc in docs:
-        date = doc["date"]
-        for entry in doc["top_words"]:
-            if entry["word"] == word:
-                data.append({"date": date, "count": entry["count"]})
-                break
-
-    df = pd.DataFrame(data)
-    if len(df) < min_days:
-        return None  # Not enough data yet
-
-    df["date"] = pd.to_datetime(df["date"])
-    df = df.sort_values("date").set_index("date")
-    return df
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
-from pymongo import MongoClient
+# pipeline_sample/deduplication.py
+
 from mongo.mongodb_client import db
 from mongo.repositories.repository_articles import RepositoryArticles
-from bson import ObjectId
 
 repo_articles = RepositoryArticles(db)
 
