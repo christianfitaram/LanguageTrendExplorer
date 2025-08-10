@@ -1,18 +1,14 @@
 # pipeline_sample/custom_scrapers.py
-
+from __future__ import annotations
 from datetime import datetime, UTC
-
-import feedparser
+from typing import Dict, Iterable
 import requests
 import trafilatura
 from bs4 import BeautifulSoup
-
-from lib.repositories.link_pool_repository import LinkPoolRepository
-
-repo_link_pool = LinkPoolRepository()
+import feedparser
 
 
-def fetch_and_extract(url):
+def _fetch_and_extract(url: str) -> str | None:
     try:
         downloaded = trafilatura.fetch_url(url)
         if downloaded:
@@ -22,16 +18,8 @@ def fetch_and_extract(url):
     return None
 
 
-def is_urls_processed_already(url):
-    is_it = repo_link_pool.is_link_successfully_processed(url)
-    if is_it:
-        print(f"{url} it has been processed already. Skipping ")
-        return True
-    else:
-        return False
-
-
-def scrape_bbc_stream():
+def scrape_bbc_stream() -> Iterable[Dict]:
+    """Yield BBC articles. No DB writes, no link_pool checks."""
     url_bbc = "https://www.bbc.com/news"
     try:
         res = requests.get(url_bbc, timeout=10)
@@ -45,15 +33,13 @@ def scrape_bbc_stream():
         parent = link.find_parent("a")
         href = parent.get("href") if parent else ""
         full_url = "https://www.bbc.com" + href if href.startswith("/") else href
-
-        if is_urls_processed_already(full_url):  # Skip if url in link pool
+        if not full_url:
             continue
 
-        full_text = fetch_and_extract(full_url)
+        full_text = _fetch_and_extract(full_url)
         if not full_text:
             continue
 
-        repo_link_pool.insert_link({"url": full_url})  # Add URL to link pool
         yield {
             "title": title,
             "url": full_url,
@@ -63,7 +49,7 @@ def scrape_bbc_stream():
         }
 
 
-def scrape_cnn_stream():
+def scrape_cnn_stream() -> Iterable[Dict]:
     url_cnn = "https://edition.cnn.com/world"
     try:
         res = requests.get(url_cnn, timeout=10)
@@ -78,24 +64,15 @@ def scrape_cnn_stream():
             continue
         full_url = "https://edition.cnn.com" + href if href.startswith("/") else href
 
-        if is_urls_processed_already(full_url):  # Skip if url in link pool
-            continue
-
-        full_text = fetch_and_extract(full_url)
-        if not full_text:
-            continue
-
         title_tag = link.select_one(".container__headline-text, [data-editable='headline']")
         if not title_tag:
             continue
-
         title = title_tag.get_text(strip=True)
-        full_text = fetch_and_extract(full_url)
 
+        full_text = _fetch_and_extract(full_url)
         if not full_text:
             continue
 
-        repo_link_pool.insert_link({"url": full_url})  # Add URL to link pool
         yield {
             "title": title,
             "url": full_url,
@@ -105,7 +82,7 @@ def scrape_cnn_stream():
         }
 
 
-def scrape_wsj_stream():
+def scrape_wsj_stream() -> Iterable[Dict]:
     rss_url = "https://feeds.a.dj.com/rss/RSSWorldNews.xml"
     try:
         feed = feedparser.parse(rss_url)
@@ -114,61 +91,38 @@ def scrape_wsj_stream():
         return
 
     for entry in feed.entries:
+        url = entry.get("link")
+        title = entry.get("title", "").strip()
         summary = entry.get("summary", "").strip()
-
-        if is_urls_processed_already(entry.link):  # Skip if url in link pool
+        if not url or not title or not summary:
             continue
 
-        if not summary:
-            continue
-
-        repo_link_pool.insert_link({"url": entry.link})  # Add URL to link pool
         yield {
-            "title": entry.title.strip(),
-            "url": entry.link,
+            "title": title,
+            "url": url,
             "text": summary,
             "source": "the-wall-street-journal",
             "scraped_at": datetime.now(UTC),
         }
 
 
-def scrape_aljazeera():
-    print("Scraping Al Jazeera...")
-
-    base_url = "https://www.aljazeera.com/news/"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                      "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-    }
-
-    try:
-        res = requests.get(base_url, headers=headers, timeout=10)
-        soup = BeautifulSoup(res.text, "html.parser")
-    except Exception as e:
-        print(f"Error scraping Al Jazeera homepage: {e}")
-        return
-
-    # Look for article links
-    links = soup.select("a.u-clickable-card__link")
-    print(f"Found {len(links)} article links")
-
-    for link in links:
-        href = link.get("href")
-        if not href or not href.startswith("/"):
+def scrape_aljazeera() -> Iterable[Dict]:
+    import feedparser
+    from datetime import datetime, UTC
+    feed = feedparser.parse("https://www.aljazeera.com/xml/rss/all.xml")
+    for e in feed.entries:
+        url = e.get("link")
+        title = (e.get("title") or "").strip()
+        if not url or not title:
             continue
-
-        full_url = "https://www.aljazeera.com" + href
-
-        # Extract article text
-        full_text = fetch_and_extract(full_url)
-        if not full_text:
-            print(f"❌ Could not extract content from {full_url}")
+        text = _fetch_and_extract(url)
+        if not text:
             continue
-        repo_link_pool.insert_link({"url": full_url})  # Add URL to link pool
-        yield ({
-            "title": link.get_text(strip=True),
-            "url": full_url,
-            "text": full_text[:200] + "...",
+        yield {
+            "title": title,
+            "url": url,
+            "text": text,
             "source": "aljazeera",
             "scraped_at": datetime.now(UTC),
-        })
+        }
+

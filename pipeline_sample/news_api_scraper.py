@@ -1,38 +1,51 @@
 # pipeline_sample/news_api_scraper.py
-
+from __future__ import annotations
 import os
-from datetime import timezone, datetime, UTC
+from dotenv import load_dotenv
+from datetime import datetime, UTC, timezone
+from typing import Dict, Iterable, Optional
 
 import requests
-
-from custom_pipeline.utils import is_urls_processed_already, fetch_and_extract
-from mongo.mongodb_client import db
-from mongo.repositories.repository_link_pool import RepositoryLinkPool
+import trafilatura
 
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 
-repo = RepositoryLinkPool(db)
-# Your combined OR query for topics
 TOPIC_QUERY = (
     "politics OR government OR sports OR athletics OR science OR research OR "
     "technology OR innovation OR health OR medicine OR business OR finance OR "
     "entertainment OR celebrity OR crime OR justice OR climate OR environment OR "
     "education OR schools OR war OR conflict OR travel OR tourism"
 )
-
 UNWANTED_CONTENT_SNIPPET = "A required part of this site couldnt load"
 
 
-def sample_date():
-    target_date = datetime.now(UTC).date()  # timezone-aware UTC date
-    return target_date
+def _get_newsapi_key() -> str:
+    # load .env if not already loaded
+    load_dotenv()
+    key = os.getenv("NEWSAPI_KEY", "").strip()
+    if not key:
+        raise RuntimeError("NEWSAPI_KEY is missing. Set it in .env or env vars.")
+    return key
+
+def _sample_date():
+    return datetime.now(UTC).date()
 
 
-def scrape_newsapi_stream(language='en', page_size=50, target_date=None):
+def _fetch_and_extract(url: str) -> str | None:
+    try:
+        downloaded = trafilatura.fetch_url(url)
+        if downloaded:
+            return trafilatura.extract(downloaded)
+    except Exception as e:
+        print(f"Failed to fetch article: {url}, error: {e}")
+    return None
+
+
+def scrape_newsapi_stream(language: str = "en", page_size: int = 50, target_date=None) -> Iterable[Dict]:
     base_url = "https://newsapi.org/v2/everything"
     if target_date is None:
-        target_date = sample_date()
-    # We'll fetch two pages to get approx 200 articles
+        target_date = _sample_date()
+
     for page in [1, 2]:
         try:
             response = requests.get(
@@ -45,58 +58,45 @@ def scrape_newsapi_stream(language='en', page_size=50, target_date=None):
                     "sortBy": "publishedAt",
                     "pageSize": page_size,
                     "page": page,
-                    "apiKey": NEWSAPI_KEY
+                    "apiKey": NEWSAPI_KEY,
                 },
-                timeout=10
+                timeout=10,
             )
             response.raise_for_status()
             data = response.json()
         except Exception as e:
             print(f"Error fetching news (page {page}): {e}")
-            return  # Stops the generator if request fails
+            return
 
-        for article in data.get("articles", []):
-            # Exclude unwanted content
-            content = article.get("content") or ""
+        for a in data.get("articles", []):
+            content = a.get("content") or ""
             if UNWANTED_CONTENT_SNIPPET in content:
                 continue
-
-            url = article.get("url")
+            url = a.get("url")
             if not url:
                 continue
-            if is_urls_processed_already(url):
+
+            text = _fetch_and_extract(url)
+            if not text or not text.strip():
                 continue
 
-            full_text = fetch_and_extract(url)
-            if full_text is None or not full_text.strip():
-                continue  # Skip this article if no content was extracted
-
-            repo.insert_link({"url": url})
-
             yield {
-                "title": article.get("title", "").strip(),
-                "text": full_text.strip(),
+                "title": a.get("title", "").strip(),
+                "text": text.strip(),
                 "url": url,
-                "source": article.get("source", {}).get("name", ""),
+                "source": a.get("source", {}).get("name", ""),
                 "scraped_at": datetime.now(timezone.utc),
             }
 
 
-def scrape_all_categories(language='en', page_size=100, pages_per_category=1, target_date=None):
-    skipped = 0
-    kept = 0
+def scrape_all_categories(language: str = "en", page_size: int = 100, pages_per_category: int = 1, target_date=None) -> \
+Iterable[Dict]:
     if target_date is None:
-        target_date = sample_date()
+        target_date = _sample_date()
 
-    categories = [
-        "business",
-        "entertainment",
-        "general",
-        "health",
-        "science",
-        "sports",
-        "technology",
-    ]
+    categories = ["business", "entertainment", "general", "health", "science", "sports", "technology"]
+    kept, skipped = 0, 0
+
     try:
         for category in categories:
             for page in range(1, pages_per_category + 1):
@@ -110,7 +110,7 @@ def scrape_all_categories(language='en', page_size=100, pages_per_category=1, ta
                             "pageSize": page_size,
                             "page": page,
                         },
-                        timeout=10
+                        timeout=10,
                     )
                     response.raise_for_status()
                     data = response.json()
@@ -118,43 +118,39 @@ def scrape_all_categories(language='en', page_size=100, pages_per_category=1, ta
                     print(f"Error fetching category '{category}', page {page}: {e}")
                     continue
 
-                for article in data.get("articles", []):
-                    published_at_str = article.get("publishedAt")
+                for a in data.get("articles", []):
+                    published_at_str = a.get("publishedAt")
                     if not published_at_str:
                         continue
-
                     try:
                         published_at = datetime.strptime(published_at_str, "%Y-%m-%dT%H:%M:%SZ").date()
                     except ValueError:
-                        print(f"❌ Invalid publishedAt format: {published_at_str}")
                         continue
-
                     if published_at != target_date:
-                        print(f"Skipping article from {published_at_str} (wanted {target_date})")
                         skipped += 1
                         continue
-                    content = article.get("content") or ""
+
+                    content = a.get("content") or ""
                     if "A required part of this site couldn't load" in content:
                         continue
 
-                    url = article.get("url")
-                    if not url or is_urls_processed_already(url):
+                    url = a.get("url")
+                    if not url:
                         continue
 
-                    full_text = fetch_and_extract(url)
-                    if not full_text or not full_text.strip():
+                    text = _fetch_and_extract(url)
+                    if not text or not text.strip():
                         continue
 
-                    repo.insert_link({"url": url})
                     kept += 1
                     yield {
-                        "title": article.get("title", "").strip(),
-                        "text": full_text.strip(),
+                        "title": a.get("title", "").strip(),
+                        "text": text.strip(),
                         "url": url,
-                        "source": article.get("source", {}).get("name", ""),
+                        "source": a.get("source", {}).get("name", ""),
                         "scraped_at": datetime.now(timezone.utc),
                         "published_at": published_at_str,
-                        "category": category
+                        "category": category,
                     }
     finally:
         print(f"✅ Scraped {kept} articles from {target_date}, skipped {skipped} from other dates.")
