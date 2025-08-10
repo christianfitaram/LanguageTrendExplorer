@@ -27,6 +27,7 @@ def _get_newsapi_key() -> str:
         raise RuntimeError("NEWSAPI_KEY is missing. Set it in .env or env vars.")
     return key
 
+
 def _sample_date():
     return datetime.now(UTC).date()
 
@@ -90,7 +91,7 @@ def scrape_newsapi_stream(language: str = "en", page_size: int = 50, target_date
 
 
 def scrape_all_categories(language: str = "en", page_size: int = 100, pages_per_category: int = 1, target_date=None) -> \
-Iterable[Dict]:
+        Iterable[Dict]:
     if target_date is None:
         target_date = _sample_date()
 

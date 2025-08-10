@@ -1,5 +1,4 @@
 # pipeline_sample/summarizer.py
-
 import os
 import re
 import torch

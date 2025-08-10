@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, Protocol
 
+from pipeline_sample.summarizer import smart_summarize
+
 
 @dataclass(frozen=True)
 class Pipelines(Protocol):
@@ -61,5 +63,4 @@ class ClassifierService:
         )
 
     def _summarize_cheap(self, text: str) -> str:
-        # quick cut (use your smart_summarize if you want; keep service dependency-light)
-        return text[:2000]
+        smart_summarize(text)
