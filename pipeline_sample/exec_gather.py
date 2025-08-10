@@ -1,6 +1,7 @@
 # pipeline_sample/exec_gather.py
 from __future__ import annotations
 from dotenv import load_dotenv
+
 load_dotenv()
 import argparse
 import os
@@ -41,7 +42,8 @@ model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, cache_dir
 sentiment_pipeline = hf_pipeline(task="sentiment-analysis", model=model, tokenizer=tokenizer)
 
 tokenizer_topic = AutoTokenizer.from_pretrained(MODEL_NAME_TOPIC, cache_dir=str(_CACHE_DIR), local_files_only=True)
-model_topic = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME_TOPIC, cache_dir=str(_CACHE_DIR), local_files_only=True)
+model_topic = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME_TOPIC, cache_dir=str(_CACHE_DIR),
+                                                                 local_files_only=True)
 topic_pipeline = hf_pipeline(task="zero-shot-classification", model=model_topic, tokenizer=tokenizer_topic)
 
 CANDIDATE_TOPICS = [
@@ -95,8 +97,10 @@ def main() -> int:
     class _Samples:
         def new_sample_id(self) -> str:
             return generate_id(repo=repo_articles)
+
         def find_last_sample(self):
             return find_last_sample()
+
         def link_previous(self, prev, current):
             update_next_in_previous_doc(prev, current)
 
@@ -108,7 +112,7 @@ def main() -> int:
         samples=_Samples(),
         classifier=classifier,
         scrapers=scrapers,
-        link_pool_gate=gate,   # <-- NEW
+        link_pool_gate=gate,  # <-- NEW
     )
 
     sample_id = usecase.run()
