@@ -1,8 +1,10 @@
+from datetime import datetime, UTC
+
 import feedparser
 import requests
 import trafilatura
 from bs4 import BeautifulSoup
-from datetime import datetime, UTC
+
 from mongo.mongodb_client import db
 from mongo.repositories.repository_link_pool import RepositoryLinkPool
 
@@ -127,3 +129,45 @@ def scrape_wsj_stream():
             "source": "the-wall-street-journal",
             "scraped_at": datetime.now(UTC),
         }
+
+
+def scrape_aljazeera():
+    print("Scraping Al Jazeera...")
+
+    base_url = "https://www.aljazeera.com/news/"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+    }
+
+    try:
+        res = requests.get(base_url, headers=headers, timeout=10)
+        soup = BeautifulSoup(res.text, "html.parser")
+    except Exception as e:
+        print(f"Error scraping Al Jazeera homepage: {e}")
+        return
+
+    # Look for article links
+    links = soup.select("a.u-clickable-card__link")
+    print(f"Found {len(links)} article links")
+
+    for link in links:
+        href = link.get("href")
+        if not href or not href.startswith("/"):
+            continue
+
+        full_url = "https://www.aljazeera.com" + href
+
+        # Extract article text
+        full_text = fetch_and_extract(full_url)
+        if not full_text:
+            print(f"❌ Could not extract content from {full_url}")
+            continue
+        repo.insert_link({"url": full_url})  # Add URL to link pool
+        yield ({
+            "title": link.get_text(strip=True),
+            "url": full_url,
+            "text": full_text[:200] + "...",
+            "source": "aljazeera",
+            "scraped_at": datetime.now(UTC),
+        })

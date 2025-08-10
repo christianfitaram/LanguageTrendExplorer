@@ -15,5 +15,13 @@ class RepositoryDailyTrends:
         result = self.collection.find_one(param)
         return result
 
+    def delete_daily_trends(self, selector):
+        result = self.collection.delete_many(selector)
+        return result.deleted_count
+
+    def delete_daily_trend(self, selector):
+        result = self.collection.delete_one(selector)
+        return result.deleted_count
+
     def update_daily_trends(self, selector, update_data):
         self.collection.update_one(selector, update_data)

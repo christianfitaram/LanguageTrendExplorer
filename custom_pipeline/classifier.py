@@ -1,15 +1,15 @@
 # classifier.py
 from collections import Counter
-from datetime import datetime, UTC
-
+from datetime import datetime, UTC,timezone
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 
 from custom_pipeline.get_all_articles import get_all_articles
+from custom_pipeline.summarizer import smart_summarize
 from mongo.mongodb_client import db
 from mongo.repositories.repository_articles import RepositoryArticles
 from mongo.repositories.repository_link_pool import RepositoryLinkPool
 from mongo.repositories.repository_metadata import RepositoryMetadata
-from custom_pipeline.summarizer import smart_summarize
+from utils.utils_functions import is_valid_sample
 
 # Injecting repositories
 repo_articles = RepositoryArticles(db)
@@ -59,102 +59,31 @@ topic_pipeline = pipeline(
 )
 
 
-def get_next_batch_number():
-    # Get today's date
-    today = datetime.now(UTC).date()
-    today_str = today.strftime("%Y-%m-%d")
-    samples = repo_articles.get_distinct_samples(today_str)
-    batches = []
-    for sample in samples:
-        parts = sample.split("-")
-        if len(parts) >= 4:
-            try:
-                prefix = int(parts[0])
-                batches.append(prefix)
-            except (ValueError, IndexError):
-                continue
-    if len(batches) > 0:
-        max_value = max(batches)
-        return max_value + 1
-    # No samples from today or malformed data
-    return 1
+def classify_articles(id_for_metadata=None):
+    if id_for_metadata is None:
+        id_for_metadata = input("Enter the sample string (e.g. '1-2025-04-12'): ")
+        while is_valid_sample(id_for_metadata) is False:
+            id_for_metadata = input("Incorrect format (e.g. '1-2025-04-12'): ")
 
-
-def found_last_sample():
-    docs = list(repo_metadata.get_metadata({}, [("_id", -1)]))
-
-    latest_doc = None
-    latest_date = None
-    latest_prefix = None
-
-    for doc in docs:
-        raw_id = doc["_id"]  # e.g., "2-2025-06-19"
-        parts = raw_id.split("-")
-        if len(parts) >= 4:
-            try:
-                prefix = int(parts[0])
-                date_str = f"{parts[1]}-{parts[2]}-{parts[3]}"
-                doc_date = datetime.strptime(date_str, "%Y-%m-%d")
-
-                if (
-                        latest_date is None or
-                        doc_date > latest_date or
-                        (doc_date == latest_date and prefix > latest_prefix)
-                ):
-                    latest_date = doc_date
-                    latest_prefix = prefix
-                    latest_doc = doc
-
-            except (ValueError, IndexError):
-                continue  # skip malformed IDs
-
-    if latest_doc:
-        return latest_doc.get("_id")
-    else:
-        return None
-
-
-def id_generator():
-    today = datetime.now(UTC).date()
-    batch = get_next_batch_number()
-
-    id_new = f"{batch}-{today}"
-
-    return id_new
-
-
-def update_next_in_previous_doc(to_update, next_value):
-    result = repo_metadata.update_metadata({"_id": to_update}, {"$set": {"next": next_value}})
-
-    if result.matched_count > 0:
-        print("Previous metadata document found")
-        if result.modified_count > 0:
-            print(f"✅ Modified 'next' field in sample: {to_update} with value {next_value}")
-        else:
-            print("No updated.")
-    else:
-        print("No updated.")
-
-
-def classify_articles():
+    batch_number=1
     sentiment_counter = Counter()
     topic_counter = Counter()
     num_well_classified = 0
     num_failed_classified = 0
-    batch_number = get_next_batch_number()
-    id_for_metadata = id_generator()
-    prev_sample = found_last_sample()
     print(f"🗂️Starting batch ID: {id_for_metadata}")
-
-    repo_metadata.insert_metadata(
-        {"_id": id_for_metadata,
-         "gathering_sample_startedAt": datetime.now(UTC),
-         "batch": batch_number,
-         "prev": prev_sample,
-         "next": None
-         })
-
-    update_next_in_previous_doc(prev_sample, id_for_metadata)
+    try:
+        repo_metadata.insert_metadata(
+            {
+                "_id": id_for_metadata,
+                "gathering_sample_startedAt": datetime.now(UTC),
+                "batch": batch_number,
+                "prev": None,
+                "next": None,
+            }
+        )
+    except Exception as e:
+        print(f"Error inserting metadata: {e}")
+        classify_articles()
 
     for i, article in enumerate(get_all_articles(), start=1):
         text = article.get("text", "")

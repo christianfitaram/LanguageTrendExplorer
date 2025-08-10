@@ -45,3 +45,11 @@ class RepositoryLinkPool:
         """
         result = self.collection.delete_many(selector)
         return result.deleted_count
+
+    def count_all_documents(self):
+        """
+        Retrieves the total number of documents in the collection
+
+        :return: Number of total documentes
+        """
+        return self.collection.count_documents({})
