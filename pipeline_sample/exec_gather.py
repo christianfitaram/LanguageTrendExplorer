@@ -56,8 +56,8 @@ CANDIDATE_TOPICS = [
 def _build_scrapers(newsapi_only: bool) -> list[FunctionScraper]:
     if newsapi_only:
         return [
-            FunctionScraper(lambda: scrape_newsapi_stream()),
-            FunctionScraper(lambda: scrape_all_categories()),
+            FunctionScraper(lambda: scrape_newsapi_stream(target_date="2025-08-10")),
+            FunctionScraper(lambda: scrape_all_categories(target_date="2025-08-10")),
         ]
     return [
         FunctionScraper(lambda: scrape_cnn_stream()),

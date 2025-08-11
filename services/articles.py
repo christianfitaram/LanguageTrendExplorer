@@ -65,6 +65,7 @@ class ArticlesService:
 
     def clean_articles(self, sample_id: str) -> str:
         """Clean raw articles for a given sample using the injected repositories."""
+        count = 0
         self.repo_metadata.update_metadata(
             {"_id": sample_id},
             {"$set": {"cleaning_sample_startedAt": datetime.now(UTC)}},
@@ -72,6 +73,8 @@ class ArticlesService:
         for article in self.repo_articles.get_articles({"sample": sample_id}):
             if not article.get("text"):
                 continue
+            count += 1
+            print(f"[{count}] Cleaning article: {article.get('title', 'No Title')}")  # Debugging output
             nouns = self.extract_nouns(article["text"])
             cleaned_doc: Dict[str, Any] = {
                 "title": article.get("title"),

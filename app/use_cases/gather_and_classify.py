@@ -63,7 +63,7 @@ class GatherAndClassifyUseCase:
         batch = self.batches.next_batch_number()
         sample = self.samples.new_sample_id()
         prev = self.samples.find_last_sample()
-
+        count = 0
         # Create/initialize metadata for this sample
         self.metadata_repo.insert_metadata({
             "_id": sample,
@@ -74,67 +74,101 @@ class GatherAndClassifyUseCase:
         })
         self.samples.link_previous(prev, sample)
 
-        # Counters
-        seen: set[str] = set()
-        topic_counter: Counter[str] = Counter()
-        sentiment_counter: Counter[str] = Counter()
-        ok, fail = 0, 0
-
+        # Step 1: Gather all candidate articles first (so we can print a total)
+        all_articles: list[Dict[str, Any]] = []
         for scraper in self.scrapers:
             for raw in scraper.stream():
                 url = raw.get("url")
                 text = (raw.get("text") or "").strip()
                 if not url or not text:
                     continue
-                if url in seen:
-                    continue
-                seen.add(url)
+                all_articles.append(raw)
 
-                # Centralized link-pool logic
-                if self.link_pool_gate.is_processed(url):
-                    continue
-                self.link_pool_gate.ensure_tracked(url)
+        total_articles = len(all_articles)
+        print(f"📄 Total articles found to process: {total_articles}")
 
-                try:
-                    art_in = ArticleIn(
-                        title=raw.get("title"),
-                        url=url,
-                        text=text,
-                        source=raw.get("source"),
-                        scraped_at=raw.get("scraped_at"),
-                    )
-                    classified = self.classifier.classify(art_in, batch=batch, sample=sample)
+        # Counters
+        seen: set[str] = set()
+        topic_counter: Counter[str] = Counter()
+        sentiment_counter: Counter[str] = Counter()
+        ok = fail = skipped = 0
 
-                    # persist the article
-                    self.articles_repo.create_articles(classified.__dict__)
+        # Step 2: Process each article
+        for raw in all_articles:
+            count += 1
+            print(f"\n[{count}/{total_articles}] Processing article...")
+            url = raw.get("url")
+            text = (raw.get("text") or "").strip()
+            title = (raw.get("title") or "").strip() or "(untitled)"
 
-                    # mark processed for this sample
-                    self.link_pool_gate.mark_processed(url, sample)
+            # Dedup within this run
+            if url in seen:
+                skipped += 1
+                print(f"⏩ Skipping duplicate in batch: {title}")
+                continue
+            seen.add(url)
 
-                    ok += 1
-                    topic_counter[classified.topic] += 1
-                    sentiment_counter[classified.sentiment.get("label", "unknown")] += 1
+            # Centralized link-pool logic (skip if previously processed)
+            if self.link_pool_gate.is_processed(url):
+                skipped += 1
+                print(f"⏩ Already processed earlier: {title}")
+                continue
+            self.link_pool_gate.ensure_tracked(url)
 
-                except Exception:
-                    fail += 1
-                    # Avoid reprocessing loops on failures, still mark as processed in this sample
-                    self.link_pool_gate.mark_processed(url, sample)
+            try:
+                art_in = ArticleIn(
+                    title=title,
+                    url=url,
+                    text=text,
+                    source=raw.get("source"),
+                    scraped_at=raw.get("scraped_at"),
+                )
+                classified = self.classifier.classify(art_in, batch=batch, sample=sample)
+
+                # persist the article
+                self.articles_repo.create_articles(classified.__dict__)
+
+                # mark processed for this sample
+                self.link_pool_gate.mark_processed(url, sample)
+
+                ok += 1
+                topic_counter[classified.topic] += 1
+                sentiment_counter[classified.sentiment.get("label", "unknown")] += 1
+
+                print(f"✅ Processed successfully: {title}")
+
+            except Exception as e:
+                fail += 1
+                # Avoid reprocessing loops on failures; still mark as processed in this sample
+                self.link_pool_gate.mark_processed(url, sample)
+                print(f"❌ Failed to process: {title} — Error: {e}")
 
         # Distributions
-        total = sum(topic_counter.values()) or 1
-        topic_pct = [{"label": t, "percentage": round((c / total) * 100, 2)} for t, c in topic_counter.most_common()]
-        sentiment_pct = [{"label": s, "percentage": round((c / total) * 100, 2)} for s, c in sentiment_counter.most_common()]
+        total_processed = sum(topic_counter.values()) or 1
+        topic_pct = [{"label": t, "percentage": round((c / total_processed) * 100, 2)}
+                     for t, c in topic_counter.most_common()]
+        sentiment_pct = [{"label": s, "percentage": round((c / total_processed) * 100, 2)}
+                         for s, c in sentiment_counter.most_common()]
 
         # Finalize metadata
         self.metadata_repo.update_metadata(
             {"_id": sample},
             {
                 "$set": {
-                    "articles_processed": {"successfully": ok, "unsuccessfully": fail},
+                    "articles_processed": {"successfully": ok, "unsuccessfully": fail, "skipped": skipped},
                     "topic_distribution": topic_pct,
                     "sentiment_distribution": sentiment_pct,
                     "gathering_sample_finishedAt": datetime.now(UTC),
                 }
             },
         )
+
+        # Final summary
+        print("\n🏁 Summary")
+        print(f"   ├─ Total candidates: {total_articles}")
+        print(f"   ├─ Success:         {ok}")
+        print(f"   ├─ Failed:          {fail}")
+        print(f"   └─ Skipped:         {skipped}")
+
         return sample
+

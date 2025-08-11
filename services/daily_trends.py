@@ -34,6 +34,7 @@ class DailyTrendsService:
     def extract_occurrences(self, articles: List[Dict[str, Any]]) -> List[WordOccurrence]:
         out: List[WordOccurrence] = []
         for a in articles:
+            print(f"Processing article: {a.get('title', 'No Title')}")  # Debugging output
             topic = (a.get("topic") or "").strip().lower()
             sentiment = (a.get("sentiment", {}).get("label") or "").strip().lower()
             nouns = a.get("nouns", []) or []

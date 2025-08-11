@@ -23,6 +23,8 @@ print(f"📦 Caching models into: {cache_dir}")
 REQUIRED_MODELS = [
     "distilbert-base-uncased-finetuned-sst-2-english",
     "facebook/bart-large-mnli",
+    "facebook/bart-large-cnn",  # <-- needed by summarizer
+
 ]
 
 # Download each model + tokenizer

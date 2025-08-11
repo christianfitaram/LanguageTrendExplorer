@@ -31,6 +31,9 @@ class ArticlesRepository:
         result = self.collection.delete_many(selector)
         return result.deleted_count
 
+    def count_articles(self, params: Dict[str, Any]) -> int:
+        return self.collection.count_documents(params)
+
     def setup_indexes(self) -> None:
         name = self.collection.create_index([("isCleaned", 1), ("sample", 1)])
         print(f"✅ Compound index '{name}' created on 'isCleaned + sample'")

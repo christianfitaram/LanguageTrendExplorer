@@ -86,5 +86,5 @@ class LinkPoolRepository:
         result = self.collection.delete_many(selector)
         return result.deleted_count
 
-    def count_all_documents(self) -> int:
-        return self.collection.count_documents({})
+    def count(self, params: Dict[str, Any]) -> int:
+        return self.collection.count_documents(params)

@@ -43,7 +43,7 @@ class ClassifierService:
         self.candidate_topics = candidate_topics
 
     def classify(self, art: ArticleIn, batch: int, sample: str) -> ArticleOut:
-        text_for_cls = art.text if len(art.text) <= 200 else self._summarize_cheap(art.text)
+        text_for_cls = art.text if len(art.text) <= 200 else smart_summarize(art.text)
         topic = self.pipes.topic(text_for_cls)           # expects {"labels":[...], ...}
         sentiment = self.pipes.sentiment(text_for_cls)   # expects {"label": "...", "score": ...}
 
@@ -62,5 +62,3 @@ class ClassifierService:
             sample=sample,
         )
 
-    def _summarize_cheap(self, text: str) -> str:
-        smart_summarize(text)
