@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Optional, List
 
 from transformers import pipeline, BartTokenizer, AutoModelForSeq2SeqLM
-
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"   # TensorFlow: suppress INFO & WARNING
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # Optional: quieter MPS fallback
 # -------------------------
 # Config
 # -------------------------

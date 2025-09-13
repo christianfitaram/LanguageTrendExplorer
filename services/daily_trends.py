@@ -1,5 +1,6 @@
 # services/daily_trends.py
 from __future__ import annotations
+
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Dict, Any, List, Optional, TypedDict
@@ -74,9 +75,9 @@ class DailyTrendsService:
         return [{"label": k, "percentage": round((v / total) * 100)} for k, v in c.most_common()]
 
     def build_ranked_words(
-        self,
-        top_words: List[tuple[str, int]],
-        occurrences: List[WordOccurrence],
+            self,
+            top_words: List[tuple[str, int]],
+            occurrences: List[WordOccurrence],
     ) -> List[RankedWord]:
         topics_by_word, sentiments_by_word = self.group_context(occurrences)
         ranked: List[RankedWord] = []

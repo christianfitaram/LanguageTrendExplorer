@@ -1,5 +1,5 @@
 # lib/repositories/link_pool_repository.py
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List, Tuple
 from lib.db.mongo_client import get_db
 from pymongo.collection import Collection
 from pymongo import ReturnDocument
@@ -15,11 +15,11 @@ class LinkPoolRepository:
         return str(result.inserted_id)
 
     def update_link_in_pool(
-        self,
-        selector: Dict[str, Any],
-        update_data: Dict[str, Any],
-        *,
-        upsert: bool = False,
+            self,
+            selector: Dict[str, Any],
+            update_data: Dict[str, Any],
+            *,
+            upsert: bool = False,
     ) -> int:
         """Return modified_count; when upsert=True, record may be inserted."""
         result = self.collection.update_one(selector, update_data, upsert=upsert)
@@ -77,6 +77,15 @@ class LinkPoolRepository:
         name_url = self.collection.create_index("url", unique=True)
         name_proc = self.collection.create_index("is_articles_processed")
         print(f"✅ Indexes created: {name_url} (unique on url), {name_proc} (processed flag)")
+
+    def create_index(self, keys: List[Tuple[str, int]], **kwargs) -> str:
+        """
+        Create an index on the link_pool collection.
+        :param keys: Dictionary specifying the fields and their sort order.
+        :param kwargs: Additional options for index creation.
+        :return: The name of the created index.
+        """
+        return self.collection.create_index(keys, **kwargs)
 
     def delete_link(self, selector: Dict[str, Any]) -> int:
         result = self.collection.delete_one(selector)

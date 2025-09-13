@@ -1,22 +1,24 @@
-# lib/repositories/clean_articles_repository.py
+# lib/repositories/summaries_repository.py
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from lib.db.mongo_client import get_db
 from pymongo.collection import Collection
 
 
-class CleanArticlesRepository:
+class SummariesRepository:
     def __init__(self) -> None:
-        self.collection: Collection = get_db()["clean_articles"]
+        self.collection: Collection = get_db()["summaries"]
 
-    def create_articles(self, article_data: Dict[str, Any]) -> str:
-        result = self.collection.insert_one(article_data)
+    def create_articles(self, data: Dict[str, Any]) -> str:
+        result = self.collection.insert_one(data)
         return str(result.inserted_id)
 
-    def get_articles(self, params: Dict[str, Any]):
-        return self.collection.find(params)
+    def get_articles(self, params: Dict[str, Any], projection: Optional[Dict[str, int]] = None):
+        return self.collection.find(params, projection) if projection else self.collection.find(params)
 
-    def get_articles_broad(self, filter_param: Dict[str, Any], projection_param: Optional[Dict[str, int]] = None):
-        return self.collection.find(filter_param, projection=projection_param)
+    def get_distinct_samples(self, sample_str: str) -> List[str]:
+        # case-insensitive suffix match for -YYYY-MM-DD
+        regex_filter = {"sample": {"$regex": sample_str, "$options": "i"}}
+        return list(self.collection.distinct("sample", regex_filter))
 
     def get_one_article(self, params: Dict[str, Any], sorting: Optional[List[Tuple[str, int]]] = None):
         return self.collection.find_one(params, sort=sorting) if sorting else self.collection.find_one(params)
@@ -35,12 +37,3 @@ class CleanArticlesRepository:
     def setup_indexes(self) -> None:
         name = self.collection.create_index([("isCleaned", 1), ("sample", 1)])
         print(f"✅ Compound index '{name}' created on 'isCleaned + sample'")
-
-    def create_index(self, keys: List[Tuple[str, int]], **kwargs) -> str:
-        """
-        Create an index on the clean_articles collection.
-        :param keys: List of tuples specifying the fields and their sort order.
-        :param kwargs: Additional options for index creation.
-        :return: The name of the created index.
-        """
-        return self.collection.create_index(keys, **kwargs)

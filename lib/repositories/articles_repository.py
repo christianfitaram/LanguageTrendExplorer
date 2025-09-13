@@ -12,6 +12,14 @@ class ArticlesRepository:
         result = self.collection.insert_one(data)
         return str(result.inserted_id)
 
+    def aggregate_articles(self, pipeline: List[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
+        """
+        Perform aggregation on the articles collection.
+        :param pipeline: List of aggregation stages.
+        :return: Iterable of documents resulting from the aggregation.
+        """
+        return self.collection.aggregate(pipeline)
+
     def get_articles(self, params: Dict[str, Any], projection: Optional[Dict[str, int]] = None):
         return self.collection.find(params, projection) if projection else self.collection.find(params)
 
@@ -37,3 +45,12 @@ class ArticlesRepository:
     def setup_indexes(self) -> None:
         name = self.collection.create_index([("isCleaned", 1), ("sample", 1)])
         print(f"✅ Compound index '{name}' created on 'isCleaned + sample'")
+
+    def create_index(self, keys: List[Tuple[str, int]], **kwargs) -> str:
+        """
+        Create an index on the articles collection.
+        :param keys: List of tuples specifying the fields and their sort order.
+        :param kwargs: Additional options for index creation.
+        :return: The name of the created index.
+        """
+        return self.collection.create_index(keys, **kwargs)

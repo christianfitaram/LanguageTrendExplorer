@@ -26,6 +26,7 @@ class ArticleOut:
     title: Optional[str]
     url: str
     text: str
+    summary: str
     source: Optional[str]
     scraped_at: Any
     batch: int
@@ -53,6 +54,7 @@ class ClassifierService:
             title=art.title,
             url=art.url,
             text=art.text,
+            summary= text_for_cls,
             source=art.source,
             scraped_at=art.scraped_at,
             batch=batch,

@@ -29,3 +29,15 @@ class DailyTrendsRepository:
     def update_daily_trends(self, selector: Dict[str, Any], update_data: Dict[str, Any]) -> int:
         result = self.collection.update_one(selector, update_data)
         return result.modified_count
+
+    def upsert_daily(self, selector: Dict[str, Any], doc: Dict[str, Any]) -> None:
+        self.collection.update_one(selector, {"$set": doc}, upsert=True)
+
+    def create_index(self, keys: Iterable[tuple], **kwargs) -> str:
+        """
+        Create an index on the daily_trends collection.
+        :param keys: Iterable of tuples specifying the fields and their sort order.
+        :param kwargs: Additional options for index creation.
+        :return: The name of the created index.
+        """
+        return self.collection.create_index(keys, **kwargs)

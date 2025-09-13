@@ -3,7 +3,7 @@ from __future__ import annotations
 from dotenv import load_dotenv
 
 load_dotenv()
-import argparse
+from typing import Optional
 import os
 from pathlib import Path
 
@@ -12,13 +12,14 @@ from custom_scrapers import scrape_bbc_stream, scrape_cnn_stream, scrape_wsj_str
 from news_api_scraper import scrape_newsapi_stream, scrape_all_categories
 
 # domain/app
-from services.classifier_service import ClassifierService
+from services.classifier_service import ClassifierService, ArticleIn
 from app.use_cases.gather_and_classify import GatherAndClassifyUseCase
 
 # repos
 from lib.repositories.articles_repository import ArticlesRepository
 from lib.repositories.link_pool_repository import LinkPoolRepository
 from lib.repositories.metadata_repository import MetadataRepository
+from lib.repositories.summaries_repository import SummariesRepository
 
 # helpers
 from services.batches import get_next_batch_number
@@ -28,7 +29,7 @@ from services.metadata import find_last_sample, update_next_in_previous_doc
 # adapters
 from adapters.scrapers import FunctionScraper
 from adapters.pipelines import HFPipelines
-from adapters.link_pool_gate import LinkPoolGate  # <-- NEW
+from adapters.link_pool_gate import LinkPoolGate  # <-- gate
 
 # HF setup (local cache)
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline as hf_pipeline
@@ -53,29 +54,29 @@ CANDIDATE_TOPICS = [
 ]
 
 
-def _build_scrapers(newsapi_only: bool) -> list[FunctionScraper]:
+def _build_scrapers(newsapi_only: bool, target_date: Optional[str]) -> list[FunctionScraper]:
     if newsapi_only:
         return [
-            FunctionScraper(lambda: scrape_newsapi_stream(target_date="2025-08-10")),
-            FunctionScraper(lambda: scrape_all_categories(target_date="2025-08-10")),
+            FunctionScraper(lambda: scrape_newsapi_stream(target_date=target_date)),
+            FunctionScraper(lambda: scrape_all_categories(target_date=target_date)),
         ]
     return [
         FunctionScraper(lambda: scrape_cnn_stream()),
         FunctionScraper(lambda: scrape_bbc_stream()),
         FunctionScraper(lambda: scrape_wsj_stream()),
         FunctionScraper(lambda: scrape_aljazeera()),
-        FunctionScraper(lambda: scrape_newsapi_stream()),
-        FunctionScraper(lambda: scrape_all_categories()),
+        FunctionScraper(lambda: scrape_newsapi_stream(target_date=target_date)),
+        FunctionScraper(lambda: scrape_all_categories(target_date=target_date)),
     ]
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Scrape + classify + persist")
-    parser.add_argument("--newsapi-only", dest="newsapi_only", action="store_true",
-                        help="Use only NewsAPI-based scrapers")
-    args = parser.parse_args()
-
-    scrapers = _build_scrapers(args.newsapi_only)
+def main(*, newsapi_only: bool = False, target_date: Optional[str] = None) -> int:
+    """
+    Orchestrate gather+classify. No argparse here; parameters are passed by Typer.
+    - newsapi_only: restrict to NewsAPI scrapers
+    - target_date: YYYY-MM-DD (applies to NewsAPI scrapers; others ignore)
+    """
+    scrapers = _build_scrapers(newsapi_only, target_date)
 
     # Build pipelines + classifier
     pipes = HFPipelines(sentiment_pipeline, topic_pipeline, CANDIDATE_TOPICS)
@@ -85,11 +86,12 @@ def main() -> int:
     repo_articles = ArticlesRepository()
     repo_link_pool = LinkPoolRepository()
     repo_metadata = MetadataRepository()
+    repo_summaries = SummariesRepository()
 
-    # Link-pool gate (centralizes dedup/processed flags)
+    # Link-pool gate
     gate = LinkPoolGate(repo_link_pool)
 
-    # Small adapters for your batch/sample helpers
+    # Small adapters
     class _Batches:
         def next_batch_number(self) -> int:
             return get_next_batch_number(repo=repo_articles)
@@ -104,15 +106,15 @@ def main() -> int:
         def link_previous(self, prev, current):
             update_next_in_previous_doc(prev, current)
 
-    # Use-case orchestrates everything (CLI doesn’t touch repos directly)
     usecase = GatherAndClassifyUseCase(
         articles_repo=repo_articles,
         metadata_repo=repo_metadata,
+        summaries_repo=repo_summaries,
         batches=_Batches(),
         samples=_Samples(),
         classifier=classifier,
         scrapers=scrapers,
-        link_pool_gate=gate,  # <-- NEW
+        link_pool_gate=gate,
     )
 
     sample_id = usecase.run()
@@ -121,4 +123,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # Optional: keep a tiny argparse here so running this file directly still works.
+    import argparse as _argparse
+    _p = _argparse.ArgumentParser(description="Scrape + classify + persist")
+    _p.add_argument("--newsapi-only", action="store_true", help="Use only NewsAPI-based scrapers")
+    _p.add_argument("--date", dest="target_date", help="YYYY-MM-DD for NewsAPI scrapers", default=None)
+    _a = _p.parse_args()
+    raise SystemExit(main(newsapi_only=_a.newsapi_only, target_date=_a.target_date))
