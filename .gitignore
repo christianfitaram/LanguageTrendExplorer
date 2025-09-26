@@ -1,4 +1,58 @@
+# Environments
 .env
-.idea/
 .venv/
+*.venv/
+env/
+venv/
+ENV/
+# IDE / Editor
+.idea/
+.vscode/
+*.code-workspace
+
+# Python bytecode
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*$py.class
+
+# Build artifacts
+build/
+dist/
+.eggs/
+*.egg-info/
+pip-wheel-metadata/
+*.manifest
+*.spec
+
+# Packaging helpers
+.Python
+pythonenv*
+lib64/
+parts/
+sdist/
+wheels/
+
+# Testing
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+pytestdebug.log
+
+# Type checkers & linters
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+
+# Logs
+*.log
+*.log.*
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Project-specific
 models/
