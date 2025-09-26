@@ -59,7 +59,7 @@ def run_batch(start: date, end: date, dry_run: bool) -> int:
 
 def parse_args(argv: List[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Automatiza scrapes de NewsAPI para un rango de fechas.")
-    parser.add_argument("--start", type=valid_date, default=date(2025, 8, 26), help="Fecha inicial (YYYY-MM-DD)")
+    parser.add_argument("--start", type=valid_date, default=date(2025, 8, 27), help="Fecha inicial (YYYY-MM-DD)")
     parser.add_argument("--end", type=valid_date, default=date(2025, 9, 14), help="Fecha final inclusive (YYYY-MM-DD)")
     parser.add_argument("--dry-run", action="store_true", help="Solo imprime los comandos sin ejecutarlos")
     return parser.parse_args(argv)
