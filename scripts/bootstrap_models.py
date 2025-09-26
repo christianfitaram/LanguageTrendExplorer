@@ -24,8 +24,6 @@ REQUIRED_MODELS = [
     "distilbert-base-uncased-finetuned-sst-2-english",
     "facebook/bart-large-mnli",
     "facebook/bart-large-cnn",  # <-- needed by summarizer
-    "sentence-transformers/all-MiniLM-L6-v2",  # <-- needed by embedder
-
 ]
 
 # Download each model + tokenizer
