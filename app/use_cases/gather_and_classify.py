@@ -73,8 +73,8 @@ class GatherAndClassifyUseCase:
         self.link_pool_gate = link_pool_gate
 
     def run(self) -> str:
-        batch = 1  #self.batches.next_batch_number()
-        sample =  "1-2025-08-23"   #self.samples.new_sample_id()
+        batch = self.batches.next_batch_number()
+        sample = self.samples.new_sample_id()
         prev = self.samples.find_last_sample()
         count = 0
         # Create/initialize metadata for this sample

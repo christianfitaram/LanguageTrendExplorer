@@ -98,7 +98,7 @@ def main(*, newsapi_only: bool = False, target_date: Optional[str] = None) -> in
 
     class _Samples:
         def new_sample_id(self) -> str:
-            return generate_id(repo=repo_articles)
+            return "1-" + target_date if target_date else generate_id()
 
         def find_last_sample(self):
             return find_last_sample()
